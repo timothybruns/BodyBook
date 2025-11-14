@@ -18,14 +18,27 @@ export default function EntryCard({ entry, onPress, onLongPress, getScoreColor, 
         </View>
       </View>
 
+      {/* Weight */}
       {entry.weight ? (
         <Text style={styles.entryDetail}>⚖️ {entry.weight} lbs</Text>
       ) : null}
 
+      {/* Exercise */}
       {entry.exercise ? (
-        <Text style={styles.entryDetail} numberOfLines={1}>💪 {entry.exercise}</Text>
+        <Text style={styles.entryDetail} numberOfLines={2}>💪 {entry.exercise}</Text>
       ) : null}
 
+      {/* Diet - NEW */}
+      {entry.diet ? (
+        <Text style={styles.entryDetail} numberOfLines={2}>🍽️ {entry.diet}</Text>
+      ) : null}
+
+      {/* Recovery - NEW */}
+      {entry.recovery ? (
+        <Text style={styles.entryDetail} numberOfLines={2}>🧘 {entry.recovery}</Text>
+      ) : null}
+
+      {/* Comments */}
       {entry.comments ? (
         <Text style={styles.entryComment} numberOfLines={2}>💭 {entry.comments}</Text>
       ) : null}

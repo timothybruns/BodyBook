@@ -1,6 +1,7 @@
 // src/components/EntryCard.js
 import React from 'react';
 import { TouchableOpacity, View, Text } from 'react-native';
+import { formatShortDate } from '../utils/date';
 
 export default function EntryCard({ entry, onPress, onLongPress, getScoreColor, styles }) {
   return (
@@ -10,7 +11,7 @@ export default function EntryCard({ entry, onPress, onLongPress, getScoreColor, 
       onLongPress={onLongPress}
     >
       <View style={styles.entryHeader}>
-        <Text style={styles.entryDate}>{entry.date}</Text>
+        <Text style={styles.entryDate}>{formatShortDate(entry.date)}</Text>
         <View style={[styles.scoreBadge, { backgroundColor: getScoreColor(entry.score) }]}>
           <Text style={styles.scoreBadgeText}>
             {entry.score > 0 ? '+' : ''}{entry.score}

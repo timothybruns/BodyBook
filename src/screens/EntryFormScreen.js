@@ -7,6 +7,7 @@ import {
 import { loadEntries, saveEntries } from '../storage/entries';
 import ScoreButton from '../components/ScoreButton';
 import { colors, spacing, shadows } from '../styles/theme';
+import { formatDisplayDate } from '../utils/date';
 
 export default function EntryFormScreen({ navigation, route }) {
   const editDate = route?.params?.date;
@@ -91,7 +92,7 @@ export default function EntryFormScreen({ navigation, route }) {
         <ScrollView style={styles.scrollView} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
           <View style={styles.formContainer}>
             <Text style={styles.header}>Log Your Day</Text>
-            <Text style={styles.dateText}>{date}</Text>
+            <Text style={styles.dateText}>{formatDisplayDate(date)}</Text>
 
             <View style={styles.section}>
               <Text style={styles.label}>Weight (lbs)</Text>
@@ -191,7 +192,6 @@ export default function EntryFormScreen({ navigation, route }) {
 }
 
 const styles = StyleSheet.create({
-  // keep your existing styles for form and shared bits
   container: { flex: 1, backgroundColor: '#f5f5f5' },
   keyboardView: { flex: 1 },
   scrollView: { flex: 1 },

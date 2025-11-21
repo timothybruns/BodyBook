@@ -1,4 +1,4 @@
-// src/screens/DashboardScreen.js - With error handling
+// src/screens/DashboardScreen.js
 import React, { useEffect, useState } from 'react';
 import { SafeAreaView, ScrollView, View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Alert } from 'react-native';
 import { loadEntries, saveEntries } from '../storage/entries';
@@ -107,7 +107,6 @@ export default function DashboardScreen({ navigation }) {
       });
     } catch (err) {
       console.error('Error calculating stats:', err);
-      // Don't show error to user, just log it
     }
   }
 
@@ -165,17 +164,15 @@ export default function DashboardScreen({ navigation }) {
     ]);
   };
 
-  // Show loading state
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={colors.indigo} />
+        <ActivityIndicator size="large" color={colors.primary} />
         <Text style={styles.loadingText}>Loading your entries...</Text>
       </View>
     );
   }
 
-  // Show error state
   if (error) {
     return (
       <SafeAreaView style={styles.container}>
@@ -285,51 +282,51 @@ export default function DashboardScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f5f5' },
-  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#f5f5f5' },
-  loadingText: { marginTop: 12, fontSize: 16, color: '#666' },
-  errorContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
+  container: { flex: 1, backgroundColor: colors.background },
+  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background },
+  loadingText: { marginTop: 12, fontSize: 16, color: colors.textSecondary },
+  errorContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20, backgroundColor: colors.background },
   errorEmoji: { fontSize: 64, marginBottom: 16 },
-  errorTitle: { fontSize: 24, fontWeight: 'bold', color: '#333', marginBottom: 8 },
-  errorMessage: { fontSize: 16, color: '#666', textAlign: 'center', marginBottom: 24 },
-  retryButton: { backgroundColor: colors.indigo, paddingHorizontal: 32, paddingVertical: 12, borderRadius: 8 },
-  retryButtonText: { color: '#fff', fontSize: 16, fontWeight: '600' },
+  errorTitle: { fontSize: 24, fontWeight: 'bold', color: colors.textPrimary, marginBottom: 8 },
+  errorMessage: { fontSize: 16, color: colors.textSecondary, textAlign: 'center', marginBottom: 24 },
+  retryButton: { backgroundColor: colors.primary, paddingHorizontal: 32, paddingVertical: 12, borderRadius: 12 },
+  retryButtonText: { color: colors.textPrimary, fontSize: 16, fontWeight: '600' },
   scrollView: { flex: 1 },
   dashboardContainer: { padding: spacing.lg },
-  dashboardHeader: { fontSize: 32, fontWeight: 'bold', color: '#333', marginBottom: 20 },
-  rangeSelector: { flexDirection: 'row', marginBottom: 24, backgroundColor: '#fff', borderRadius: 12, padding: 4, ...shadows.card },
+  dashboardHeader: { fontSize: 32, fontWeight: 'bold', color: colors.textPrimary, marginBottom: 20 },
+  rangeSelector: { flexDirection: 'row', marginBottom: 24, backgroundColor: colors.backgroundCard, borderRadius: 12, padding: 4, ...shadows.card },
   rangeButton: { flex: 1, paddingVertical: 12, alignItems: 'center', borderRadius: 8 },
-  rangeButtonActive: { backgroundColor: colors.indigo },
-  rangeButtonText: { fontSize: 14, fontWeight: '600', color: '#666' },
-  rangeButtonTextActive: { color: '#fff' },
-  scoreCard: { backgroundColor: '#fff', borderRadius: 16, padding: 24, marginBottom: 16, alignItems: 'center', ...shadows.cardLg },
-  scoreCardLabel: { fontSize: 16, color: '#666', marginBottom: 12 },
+  rangeButtonActive: { backgroundColor: colors.primary },
+  rangeButtonText: { fontSize: 14, fontWeight: '600', color: colors.textSecondary },
+  rangeButtonTextActive: { color: colors.textPrimary },
+  scoreCard: { backgroundColor: colors.backgroundCard, borderRadius: 16, padding: 24, marginBottom: 16, alignItems: 'center', ...shadows.cardLg },
+  scoreCardLabel: { fontSize: 16, color: colors.textSecondary, marginBottom: 12 },
   scoreDisplay: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
   scoreValue: { fontSize: 56, fontWeight: 'bold', marginRight: 12 },
   scoreEmoji: { fontSize: 48 },
-  scoreSubtext: { fontSize: 14, color: '#999' },
+  scoreSubtext: { fontSize: 14, color: colors.textTertiary },
   trendContainer: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
   trendEmoji: { fontSize: 20, marginRight: 8 },
-  trendText: { fontSize: 14, color: '#666', fontWeight: '600' },
+  trendText: { fontSize: 14, color: colors.textSecondary, fontWeight: '600' },
   statsGrid: { flexDirection: 'row', gap: 12, marginBottom: 16 },
-  statCard: { flex: 1, backgroundColor: '#fff', borderRadius: 12, padding: 20, alignItems: 'center', ...shadows.card },
-  statValue: { fontSize: 28, fontWeight: 'bold', color: '#333', marginBottom: 4 },
-  statLabel: { fontSize: 14, color: '#666', marginBottom: 4 },
+  statCard: { flex: 1, backgroundColor: colors.backgroundCard, borderRadius: 12, padding: 20, alignItems: 'center', ...shadows.card },
+  statValue: { fontSize: 28, fontWeight: 'bold', color: colors.textPrimary, marginBottom: 4 },
+  statLabel: { fontSize: 14, color: colors.textSecondary, marginBottom: 4 },
   changeText: { fontSize: 12, fontWeight: '600', marginTop: 4 },
   recentHeaderContainer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
-  recentHeader: { fontSize: 20, fontWeight: 'bold', color: '#333' },
-  recentSubheader: { fontSize: 12, color: '#999' },
-  entryCard: { backgroundColor: '#fff', borderRadius: 12, padding: 16, marginBottom: 12, ...shadows.card },
+  recentHeader: { fontSize: 20, fontWeight: 'bold', color: colors.textPrimary },
+  recentSubheader: { fontSize: 12, color: colors.textTertiary },
+  entryCard: { backgroundColor: colors.backgroundCard, borderRadius: 12, padding: 16, marginBottom: 12, ...shadows.card },
   entryHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
-  entryDate: { fontSize: 16, fontWeight: '600', color: '#333' },
+  entryDate: { fontSize: 16, fontWeight: '600', color: colors.textPrimary },
   scoreBadge: { paddingHorizontal: 12, paddingVertical: 4, borderRadius: 12 },
-  scoreBadgeText: { color: '#fff', fontSize: 14, fontWeight: 'bold' },
-  entryDetail: { fontSize: 14, color: '#666', marginBottom: 4 },
-  entryComment: { fontSize: 14, color: '#888', fontStyle: 'italic', marginTop: 4 },
-  emptyState: { backgroundColor: '#fff', borderRadius: 16, padding: 48, alignItems: 'center', marginTop: 20, ...shadows.card },
+  scoreBadgeText: { color: colors.textPrimary, fontSize: 14, fontWeight: 'bold' },
+  entryDetail: { fontSize: 14, color: colors.textSecondary, marginBottom: 4 },
+  entryComment: { fontSize: 14, color: colors.textTertiary, fontStyle: 'italic', marginTop: 4 },
+  emptyState: { backgroundColor: colors.backgroundCard, borderRadius: 16, padding: 48, alignItems: 'center', marginTop: 20, ...shadows.card },
   emptyStateEmoji: { fontSize: 64, marginBottom: 16 },
-  emptyStateText: { fontSize: 20, fontWeight: 'bold', color: '#333', marginBottom: 8 },
-  emptyStateSubtext: { fontSize: 16, color: '#666' },
-  newEntryButton: { backgroundColor: colors.indigo, borderRadius: 12, paddingVertical: 16, alignItems: 'center', marginTop: 8, marginBottom: 20 },
-  newEntryButtonText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
+  emptyStateText: { fontSize: 20, fontWeight: 'bold', color: colors.textPrimary, marginBottom: 8 },
+  emptyStateSubtext: { fontSize: 16, color: colors.textSecondary },
+  newEntryButton: { backgroundColor: colors.primary, borderRadius: 12, paddingVertical: 16, alignItems: 'center', marginTop: 8, marginBottom: 20, ...shadows.cardStrong },
+  newEntryButtonText: { color: colors.textPrimary, fontSize: 16, fontWeight: 'bold' },
 });

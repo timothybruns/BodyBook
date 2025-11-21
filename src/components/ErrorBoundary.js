@@ -1,7 +1,6 @@
 // src/components/ErrorBoundary.js
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
-import { colors } from '../styles/theme';
 
 class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -14,21 +13,16 @@ class ErrorBoundary extends React.Component {
   }
 
   static getDerivedStateFromError(error) {
-    // Update state so the next render will show the fallback UI
     return { hasError: true };
   }
 
   componentDidCatch(error, errorInfo) {
-    // Log error details for debugging
     console.error('Error caught by boundary:', error, errorInfo);
     
     this.setState({
       error,
       errorInfo,
     });
-
-    // Here you could send error to a crash reporting service like Sentry
-    // Sentry.captureException(error, { extra: errorInfo });
   }
 
   handleReset = () => {
@@ -41,7 +35,6 @@ class ErrorBoundary extends React.Component {
 
   render() {
     if (this.state.hasError) {
-      // Fallback UI when error occurs
       return (
         <View style={styles.container}>
           <ScrollView contentContainerStyle={styles.content}>
@@ -83,7 +76,7 @@ class ErrorBoundary extends React.Component {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#000000',
   },
   content: {
     flex: 1,
@@ -98,37 +91,37 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#FFFFFF',
     marginBottom: 12,
     textAlign: 'center',
   },
   message: {
     fontSize: 16,
-    color: '#666',
+    color: '#8E8E93',
     textAlign: 'center',
     marginBottom: 32,
     lineHeight: 24,
   },
   button: {
-    backgroundColor: colors.indigo,
+    backgroundColor: '#FF9500',
     paddingHorizontal: 32,
     paddingVertical: 16,
     borderRadius: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowColor: '#FF9500',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    elevation: 6,
   },
   buttonText: {
-    color: '#fff',
+    color: '#FFFFFF',
     fontSize: 16,
     fontWeight: 'bold',
   },
   errorDetails: {
     marginTop: 40,
     padding: 16,
-    backgroundColor: '#fff',
+    backgroundColor: '#2C2C2E',
     borderRadius: 8,
     width: '100%',
   },
@@ -140,13 +133,13 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: 12,
-    color: '#666',
+    color: '#8E8E93',
     fontFamily: 'monospace',
     marginBottom: 8,
   },
   errorStack: {
     fontSize: 10,
-    color: '#999',
+    color: '#636366',
     fontFamily: 'monospace',
   },
 });

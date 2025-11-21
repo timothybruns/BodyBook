@@ -3,6 +3,7 @@ import React from 'react';
 import { createStackNavigator } from '@react-navigation/stack';
 import DashboardScreen from '../screens/DashboardScreen';
 import EntryFormScreen from '../screens/EntryFormScreen';
+import { colors } from '../styles/theme';
 
 const Stack = createStackNavigator();
 
@@ -11,9 +12,21 @@ export default function RootNavigator() {
     <Stack.Navigator
       initialRouteName="Dashboard"
       screenOptions={{
-        headerStyle: { backgroundColor: '#6366f1' },
-        headerTintColor: '#fff',
-        headerTitleStyle: { fontWeight: 'bold' },
+        headerStyle: { 
+          backgroundColor: colors.backgroundCard,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.3,
+          shadowRadius: 4,
+          elevation: 3,
+        },
+        headerTintColor: colors.primary,
+        headerTitleStyle: { 
+          fontWeight: 'bold',
+          color: colors.textPrimary,
+        },
+        headerBackTitleVisible: false,
+        cardStyle: { backgroundColor: colors.background },
       }}
     >
       <Stack.Screen

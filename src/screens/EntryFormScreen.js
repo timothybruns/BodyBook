@@ -1,4 +1,4 @@
-// src/screens/EntryFormScreen.js - With validation
+// src/screens/EntryFormScreen.js
 import React, { useEffect, useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet,
@@ -46,9 +46,8 @@ export default function EntryFormScreen({ navigation, route }) {
     }
   }
 
-  // Validate weight input
   function validateWeight(value) {
-    if (!value) return null; // Empty is okay
+    if (!value) return null;
     
     const num = parseFloat(value);
     if (isNaN(num)) {
@@ -63,7 +62,6 @@ export default function EntryFormScreen({ navigation, route }) {
     return null;
   }
 
-  // Validate text length
   function validateTextLength(value, fieldName, maxLength = 1000) {
     if (!value) return null;
     
@@ -73,14 +71,12 @@ export default function EntryFormScreen({ navigation, route }) {
     return null;
   }
 
-  // Handle weight change with validation
   function handleWeightChange(value) {
     setWeight(value);
     const error = validateWeight(value);
     setErrors(prev => ({ ...prev, weight: error }));
   }
 
-  // Handle text field changes with validation
   function handleTextChange(field, value, maxLength = 1000) {
     const fieldSetters = {
       exercise: setExercise,
@@ -94,16 +90,13 @@ export default function EntryFormScreen({ navigation, route }) {
     setErrors(prev => ({ ...prev, [field]: error }));
   }
 
-  // Validate all fields before saving
   function validateForm() {
     const newErrors = {};
     
-    // Check if at least one field is filled
     if (!weight && !exercise && !diet && !recovery) {
       return { valid: false, message: 'Please fill in at least one field' };
     }
     
-    // Validate weight
     if (weight) {
       const weightError = validateWeight(weight);
       if (weightError) {
@@ -111,7 +104,6 @@ export default function EntryFormScreen({ navigation, route }) {
       }
     }
     
-    // Validate text fields
     ['exercise', 'diet', 'recovery', 'comments'].forEach(field => {
       const value = { exercise, diet, recovery, comments }[field];
       if (value) {
@@ -130,7 +122,6 @@ export default function EntryFormScreen({ navigation, route }) {
   }
 
   async function handleSave() {
-    // Validate form
     const validation = validateForm();
     if (!validation.valid) {
       Alert.alert('Validation Error', validation.message);
@@ -180,7 +171,7 @@ export default function EntryFormScreen({ navigation, route }) {
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={colors.indigo} />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
@@ -205,7 +196,7 @@ export default function EntryFormScreen({ navigation, route }) {
                 onChangeText={handleWeightChange}
                 keyboardType="decimal-pad"
                 placeholder="165.5"
-                placeholderTextColor="#999"
+                placeholderTextColor="#636366"
                 returnKeyType="done"
               />
               {errors.weight && (
@@ -221,7 +212,7 @@ export default function EntryFormScreen({ navigation, route }) {
                 onChangeText={(value) => handleTextChange('exercise', value, 500)}
                 multiline numberOfLines={3}
                 placeholder="100 pushups, 20 min bike..." 
-                placeholderTextColor="#999"
+                placeholderTextColor="#636366"
                 textAlignVertical="top"
               />
               {errors.exercise && (
@@ -237,7 +228,7 @@ export default function EntryFormScreen({ navigation, route }) {
                 onChangeText={(value) => handleTextChange('diet', value, 1000)}
                 multiline numberOfLines={5}
                 placeholder="Oatmeal, chicken salad, protein shake..." 
-                placeholderTextColor="#999"
+                placeholderTextColor="#636366"
                 textAlignVertical="top"
               />
               {errors.diet && (
@@ -253,7 +244,7 @@ export default function EntryFormScreen({ navigation, route }) {
                 onChangeText={(value) => handleTextChange('recovery', value, 500)}
                 multiline numberOfLines={3}
                 placeholder="Stretch, ice, breathing..." 
-                placeholderTextColor="#999"
+                placeholderTextColor="#636366"
                 textAlignVertical="top"
               />
               {errors.recovery && (
@@ -289,7 +280,7 @@ export default function EntryFormScreen({ navigation, route }) {
                 onChangeText={(value) => handleTextChange('comments', value, 500)}
                 multiline numberOfLines={3}
                 placeholder="Any notes about today..." 
-                placeholderTextColor="#999"
+                placeholderTextColor="#636366"
                 textAlignVertical="top"
               />
               {errors.comments && (
@@ -318,32 +309,32 @@ export default function EntryFormScreen({ navigation, route }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f5f5' },
+  container: { flex: 1, backgroundColor: colors.background },
   keyboardView: { flex: 1 },
   scrollView: { flex: 1 },
-  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#f5f5f5' },
+  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background },
   formContainer: { padding: spacing.lg },
-  header: { fontSize: 28, fontWeight: 'bold', color: '#333', marginBottom: 8 },
-  dateText: { fontSize: 16, color: '#666', marginBottom: 24 },
+  header: { fontSize: 28, fontWeight: 'bold', color: colors.textPrimary, marginBottom: 8 },
+  dateText: { fontSize: 16, color: colors.textSecondary, marginBottom: 24 },
   section: { marginBottom: 24 },
-  label: { fontSize: 16, fontWeight: '600', color: '#333', marginBottom: 8 },
-  labelLarge: { fontSize: 20, fontWeight: 'bold', color: '#333', marginBottom: 4 },
-  scoreSubtext: { fontSize: 14, color: '#666', marginBottom: 16 },
+  label: { fontSize: 16, fontWeight: '600', color: colors.textPrimary, marginBottom: 8 },
+  labelLarge: { fontSize: 20, fontWeight: 'bold', color: colors.textPrimary, marginBottom: 4 },
+  scoreSubtext: { fontSize: 14, color: colors.textSecondary, marginBottom: 16 },
   input: { 
-    backgroundColor: '#fff', 
+    backgroundColor: colors.backgroundCard, 
     borderRadius: 12, 
     padding: 16, 
     fontSize: 16, 
     borderWidth: 1, 
-    borderColor: '#e0e0e0', 
-    color: '#333' 
+    borderColor: colors.backgroundLight, 
+    color: colors.textPrimary 
   },
   inputError: {
-    borderColor: '#ef4444',
+    borderColor: colors.negative,
     borderWidth: 2,
   },
   errorText: {
-    color: '#ef4444',
+    color: colors.negative,
     fontSize: 12,
     marginTop: 4,
     marginLeft: 4,
@@ -351,15 +342,31 @@ const styles = StyleSheet.create({
   textArea: { minHeight: 100, textAlignVertical: 'top' },
   textAreaLarge: { minHeight: 140, textAlignVertical: 'top' },
   scoreContainer: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
-  scoreButton: { flex: 1, paddingVertical: 16, marginHorizontal: 4, borderRadius: 12, backgroundColor: '#fff', borderWidth: 2, borderColor: '#e0e0e0', alignItems: 'center' },
-  scoreButtonActive: { borderColor: colors.indigo, backgroundColor: colors.indigo },
+  scoreButton: { 
+    flex: 1, 
+    paddingVertical: 16, 
+    marginHorizontal: 4, 
+    borderRadius: 12, 
+    backgroundColor: colors.backgroundCard, 
+    borderWidth: 2, 
+    borderColor: colors.backgroundLight, 
+    alignItems: 'center' 
+  },
+  scoreButtonActive: { borderColor: colors.primary, backgroundColor: colors.primary },
   scoreButtonNegative: { borderColor: '#ffcdd2' },
   scoreButtonPositive: { borderColor: '#c8e6c9' },
-  scoreButtonText: { fontSize: 20, fontWeight: 'bold', color: '#666' },
-  scoreButtonTextActive: { color: '#fff' },
+  scoreButtonText: { fontSize: 20, fontWeight: 'bold', color: colors.textSecondary },
+  scoreButtonTextActive: { color: colors.textPrimary },
   scoreLegend: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 8 },
-  legendText: { fontSize: 12, color: '#999' },
-  saveButton: { backgroundColor: colors.indigo, borderRadius: 12, paddingVertical: 18, alignItems: 'center', marginTop: 8, ...shadows.cardStrong },
+  legendText: { fontSize: 12, color: colors.textTertiary },
+  saveButton: { 
+    backgroundColor: colors.primary, 
+    borderRadius: 12, 
+    paddingVertical: 18, 
+    alignItems: 'center', 
+    marginTop: 8, 
+    ...shadows.cardStrong 
+  },
   saveButtonDisabled: { opacity: 0.6 },
-  saveButtonText: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
+  saveButtonText: { color: colors.textPrimary, fontSize: 18, fontWeight: 'bold' },
 });

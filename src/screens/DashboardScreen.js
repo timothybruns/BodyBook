@@ -1,4 +1,4 @@
-// src/screens/DashboardScreen.js
+// src/screens/DashboardScreen.js - With error handling
 import React, { useEffect, useState } from 'react';
 import { SafeAreaView, ScrollView, View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Alert } from 'react-native';
 import { loadEntries, saveEntries } from '../storage/entries';
@@ -10,6 +10,7 @@ export default function DashboardScreen({ navigation }) {
   const [timeRange, setTimeRange] = useState('7');
   const [entries, setEntries] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [stats, setStats] = useState({
     avgScore: 0, avgWeight: 0, totalEntries: 0,
     scoreBreakdown: { negative: 0, neutral: 0, positive: 0 },
@@ -22,81 +23,118 @@ export default function DashboardScreen({ navigation }) {
     return unsub;
   }, [navigation]);
 
-  useEffect(() => { calculateStats(); }, [timeRange, entries]);
+  useEffect(() => { 
+    if (entries.length > 0) {
+      calculateStats(); 
+    }
+  }, [timeRange, entries]);
 
   async function loadData() {
     setLoading(true);
-    const loaded = await loadEntries();
-    setEntries(loaded);
-    setLoading(false);
+    setError(null);
+    try {
+      const loaded = await loadEntries();
+      setEntries(loaded);
+    } catch (err) {
+      console.error('Error loading data:', err);
+      setError('Failed to load entries. Pull down to retry.');
+    } finally {
+      setLoading(false);
+    }
   }
 
   function calculateStats() {
-    if (entries.length === 0) return;
+    try {
+      if (entries.length === 0) return;
 
-    const days = parseInt(timeRange);
-    const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - days);
+      const days = parseInt(timeRange);
+      const cutoff = new Date(); 
+      cutoff.setDate(cutoff.getDate() - days);
 
-    const recent = entries.filter(e => new Date(e.date) >= cutoff);
-    if (recent.length === 0) return;
+      const recent = entries.filter(e => {
+        try {
+          return new Date(e.date) >= cutoff;
+        } catch (err) {
+          console.error('Invalid date in entry:', e.date);
+          return false;
+        }
+      });
+      
+      if (recent.length === 0) return;
 
-    const totalScore = recent.reduce((s, e) => s + e.score, 0);
-    const avgScore = totalScore / recent.length;
+      const totalScore = recent.reduce((s, e) => {
+        const score = typeof e.score === 'number' ? e.score : 0;
+        return s + score;
+      }, 0);
+      const avgScore = totalScore / recent.length;
 
-    const withWeight = recent.filter(e => e.weight);
-    const totalWeight = withWeight.reduce((s, e) => s + parseFloat(e.weight), 0);
-    const avgWeight = withWeight.length ? totalWeight / withWeight.length : 0;
+      const withWeight = recent.filter(e => e.weight && !isNaN(parseFloat(e.weight)));
+      const totalWeight = withWeight.reduce((s, e) => s + parseFloat(e.weight), 0);
+      const avgWeight = withWeight.length ? totalWeight / withWeight.length : 0;
 
-    let weightChange = 0;
-    if (withWeight.length >= 2) {
-      const first = parseFloat(withWeight[withWeight.length - 1].weight);
-      const last = parseFloat(withWeight[0].weight);
-      weightChange = last - first;
+      let weightChange = 0;
+      if (withWeight.length >= 2) {
+        const first = parseFloat(withWeight[withWeight.length - 1].weight);
+        const last = parseFloat(withWeight[0].weight);
+        weightChange = last - first;
+      }
+
+      const scoreBreakdown = recent.reduce((acc, e) => {
+        const score = typeof e.score === 'number' ? e.score : 0;
+        if (score < 0) acc.negative++;
+        else if (score === 0) acc.neutral++;
+        else acc.positive++;
+        return acc;
+      }, { negative: 0, neutral: 0, positive: 0 });
+
+      let recentTrend = 'stable';
+      if (recent.length >= 6) {
+        const last3 = recent.slice(0, 3);
+        const prev3 = recent.slice(3, 6);
+        const last3Avg = last3.reduce((s, e) => s + (typeof e.score === 'number' ? e.score : 0), 0) / 3;
+        const prev3Avg = prev3.reduce((s, e) => s + (typeof e.score === 'number' ? e.score : 0), 0) / 3;
+        if (last3Avg > prev3Avg + 0.3) recentTrend = 'improving';
+        else if (last3Avg < prev3Avg - 0.3) recentTrend = 'declining';
+      }
+
+      setStats({
+        avgScore: avgScore.toFixed(2),
+        avgWeight: avgWeight > 0 ? avgWeight.toFixed(1) : 'N/A',
+        totalEntries: recent.length,
+        scoreBreakdown,
+        recentTrend,
+        weightChange: weightChange.toFixed(1),
+      });
+    } catch (err) {
+      console.error('Error calculating stats:', err);
+      // Don't show error to user, just log it
     }
-
-    const scoreBreakdown = recent.reduce((acc, e) => {
-      if (e.score < 0) acc.negative++;
-      else if (e.score === 0) acc.neutral++;
-      else acc.positive++;
-      return acc;
-    }, { negative: 0, neutral: 0, positive: 0 });
-
-    let recentTrend = 'stable';
-    if (recent.length >= 6) {
-      const last3 = recent.slice(0, 3);
-      const prev3 = recent.slice(3, 6);
-      const last3Avg = last3.reduce((s, e) => s + e.score, 0) / 3;
-      const prev3Avg = prev3.reduce((s, e) => s + e.score, 0) / 3;
-      if (last3Avg > prev3Avg + 0.3) recentTrend = 'improving';
-      else if (last3Avg < prev3Avg - 0.3) recentTrend = 'declining';
-    }
-
-    setStats({
-      avgScore: avgScore.toFixed(2),
-      avgWeight: avgWeight > 0 ? avgWeight.toFixed(1) : 'N/A',
-      totalEntries: recent.length,
-      scoreBreakdown,
-      recentTrend,
-      weightChange: weightChange.toFixed(1),
-    });
   }
 
   const getScoreColor = (score) => {
-    const n = parseFloat(score);
-    if (n >= 0.75) return '#10b981';
-    if (n >= 0.25) return '#84cc16';
-    if (n >= -0.25) return '#FFC107';
-    if (n >= -0.75) return '#f97316';
-    return '#ef4444';
+    try {
+      const n = typeof score === 'number' ? score : parseFloat(score) || 0;
+      if (n >= 0.75) return '#10b981';
+      if (n >= 0.25) return '#84cc16';
+      if (n >= -0.25) return '#FFC107';
+      if (n >= -0.75) return '#f97316';
+      return '#ef4444';
+    } catch (err) {
+      return '#999';
+    }
   };
 
   const getScoreEmoji = (s) => {
-    const n = parseFloat(s);
-    if (n >= 1) return '🔥';
-    if (n >= 0.5) return '😊';
-    if (n >= 0) return '😐';
-    if (n >= -0.5) return '😕';
-    return '😫';
+    try {
+      const n = typeof s === 'number' ? s : parseFloat(s) || 0;
+      if (n >= 1) return '🔥';
+      if (n >= 0.5) return '😊';
+      if (n >= 0) return '😐';
+      if (n >= -0.5) return '😕';
+      return '😫';
+    } catch (err) {
+      return '😐';
+    }
   };
 
   const getTrendEmoji = (t) => (t === 'improving' ? '📈' : t === 'declining' ? '📉' : '➡️');
@@ -105,20 +143,51 @@ export default function DashboardScreen({ navigation }) {
     Alert.alert('Delete Entry', 'Are you sure you want to delete this entry?', [
       { text: 'Cancel', style: 'cancel' },
       {
-        text: 'Delete', style: 'destructive', onPress: async () => {
-          const updated = entries.filter(e => e.date !== date);
-          await saveEntries(updated);
-          setEntries(updated);
+        text: 'Delete', 
+        style: 'destructive', 
+        onPress: async () => {
+          try {
+            const updated = entries.filter(e => e.date !== date);
+            const result = await saveEntries(updated);
+            
+            if (result.success === false) {
+              Alert.alert('Delete Failed', result.error || 'Failed to delete entry');
+              return;
+            }
+            
+            setEntries(updated);
+          } catch (err) {
+            console.error('Error deleting entry:', err);
+            Alert.alert('Error', 'Failed to delete entry. Please try again.');
+          }
         }
       }
     ]);
   };
 
+  // Show loading state
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={colors.indigo} />
+        <Text style={styles.loadingText}>Loading your entries...</Text>
       </View>
+    );
+  }
+
+  // Show error state
+  if (error) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorEmoji}>⚠️</Text>
+          <Text style={styles.errorTitle}>Oops!</Text>
+          <Text style={styles.errorMessage}>{error}</Text>
+          <TouchableOpacity style={styles.retryButton} onPress={loadData}>
+            <Text style={styles.retryButtonText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
     );
   }
 
@@ -136,7 +205,7 @@ export default function DashboardScreen({ navigation }) {
 
           {entries.length === 0 ? (
             <View style={styles.emptyState}>
-              <Text style={styles.emptyStateEmoji}>📝</Text>
+              <Text style={styles.emptyStateEmoji}>📔</Text>
               <Text style={styles.emptyStateText}>No entries yet</Text>
               <Text style={styles.emptyStateSubtext}>Start logging your days!</Text>
             </View>
@@ -218,6 +287,13 @@ export default function DashboardScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f5f5f5' },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#f5f5f5' },
+  loadingText: { marginTop: 12, fontSize: 16, color: '#666' },
+  errorContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
+  errorEmoji: { fontSize: 64, marginBottom: 16 },
+  errorTitle: { fontSize: 24, fontWeight: 'bold', color: '#333', marginBottom: 8 },
+  errorMessage: { fontSize: 16, color: '#666', textAlign: 'center', marginBottom: 24 },
+  retryButton: { backgroundColor: colors.indigo, paddingHorizontal: 32, paddingVertical: 12, borderRadius: 8 },
+  retryButtonText: { color: '#fff', fontSize: 16, fontWeight: '600' },
   scrollView: { flex: 1 },
   dashboardContainer: { padding: spacing.lg },
   dashboardHeader: { fontSize: 32, fontWeight: 'bold', color: '#333', marginBottom: 20 },
@@ -231,6 +307,7 @@ const styles = StyleSheet.create({
   scoreDisplay: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
   scoreValue: { fontSize: 56, fontWeight: 'bold', marginRight: 12 },
   scoreEmoji: { fontSize: 48 },
+  scoreSubtext: { fontSize: 14, color: '#999' },
   trendContainer: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
   trendEmoji: { fontSize: 20, marginRight: 8 },
   trendText: { fontSize: 14, color: '#666', fontWeight: '600' },
@@ -249,7 +326,10 @@ const styles = StyleSheet.create({
   scoreBadgeText: { color: '#fff', fontSize: 14, fontWeight: 'bold' },
   entryDetail: { fontSize: 14, color: '#666', marginBottom: 4 },
   entryComment: { fontSize: 14, color: '#888', fontStyle: 'italic', marginTop: 4 },
+  emptyState: { backgroundColor: '#fff', borderRadius: 16, padding: 48, alignItems: 'center', marginTop: 20, ...shadows.card },
+  emptyStateEmoji: { fontSize: 64, marginBottom: 16 },
+  emptyStateText: { fontSize: 20, fontWeight: 'bold', color: '#333', marginBottom: 8 },
+  emptyStateSubtext: { fontSize: 16, color: '#666' },
   newEntryButton: { backgroundColor: colors.indigo, borderRadius: 12, paddingVertical: 16, alignItems: 'center', marginTop: 8, marginBottom: 20 },
   newEntryButtonText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
-  // keep other shared styles you already had if needed
 });

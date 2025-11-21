@@ -1,160 +1,230 @@
-// src/storage/entries.js - Enhanced with full CRUD operations
+// src/storage/entries.js - Enhanced with crash prevention
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Alert } from 'react-native';
 
 const STORAGE_KEY = '@body_book_entries';
+const BACKUP_KEY = '@body_book_entries_backup';
 
-// CREATE - Add new entry
-export async function createEntry(entry) {
-  try {
-    const entries = await loadEntries();
-    
-    // Check if entry already exists for this date
-    const existingIndex = entries.findIndex(e => e.date === entry.date);
-    if (existingIndex >= 0) {
-      throw new Error('Entry already exists for this date. Use updateEntry instead.');
+// Validate entry data structure
+function validateEntry(entry) {
+  if (!entry || typeof entry !== 'object') {
+    throw new Error('Invalid entry: must be an object');
+  }
+  
+  if (!entry.date || typeof entry.date !== 'string') {
+    throw new Error('Invalid entry: date is required and must be a string');
+  }
+  
+  // Date format validation (YYYY-MM-DD)
+  const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+  if (!dateRegex.test(entry.date)) {
+    throw new Error('Invalid entry: date must be in YYYY-MM-DD format');
+  }
+  
+  // Validate score is a number
+  if (entry.score !== undefined && typeof entry.score !== 'number') {
+    throw new Error('Invalid entry: score must be a number');
+  }
+  
+  return true;
+}
+
+// Validate array of entries
+function validateEntries(entries) {
+  if (!Array.isArray(entries)) {
+    throw new Error('Invalid data: entries must be an array');
+  }
+  
+  entries.forEach((entry, index) => {
+    try {
+      validateEntry(entry);
+    } catch (error) {
+      throw new Error(`Invalid entry at index ${index}: ${error.message}`);
     }
-    
-    // Add timestamp
-    entry.timestamp = new Date().toISOString();
-    
-    entries.push(entry);
-    entries.sort((a, b) => new Date(b.date) - new Date(a.date));
-    
-    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
-    return { success: true, entry };
+  });
+  
+  return true;
+}
+
+// Safe JSON parse with fallback
+function safeJSONParse(data, fallback = []) {
+  if (!data) return fallback;
+  
+  try {
+    const parsed = JSON.parse(data);
+    validateEntries(parsed);
+    return parsed;
   } catch (error) {
-    console.error('Error creating entry:', error);
-    return { success: false, error: error.message };
+    console.error('Failed to parse stored data:', error);
+    return fallback;
   }
 }
 
-// READ - Get all entries
-export async function loadEntries() {
+// Create backup before saving
+async function createBackup(entries) {
   try {
-    const data = await AsyncStorage.getItem(STORAGE_KEY);
-    return data ? JSON.parse(data) : [];
+    await AsyncStorage.setItem(BACKUP_KEY, JSON.stringify(entries));
+    return true;
   } catch (error) {
-    console.error('Error loading entries:', error);
+    console.error('Failed to create backup:', error);
+    return false;
+  }
+}
+
+// Restore from backup
+async function restoreFromBackup() {
+  try {
+    const backup = await AsyncStorage.getItem(BACKUP_KEY);
+    if (backup) {
+      const entries = safeJSONParse(backup, []);
+      await AsyncStorage.setItem(STORAGE_KEY, backup);
+      return entries;
+    }
+    return [];
+  } catch (error) {
+    console.error('Failed to restore from backup:', error);
     return [];
   }
 }
 
-// READ - Get single entry by date
+// Save entries with validation and backup
+export async function saveEntries(entries) {
+  try {
+    // Validate before saving
+    validateEntries(entries);
+    
+    // Create backup of current data before overwriting
+    const currentData = await AsyncStorage.getItem(STORAGE_KEY);
+    if (currentData) {
+      await createBackup(safeJSONParse(currentData, []));
+    }
+    
+    // Save new data
+    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
+    return { success: true };
+  } catch (error) {
+    console.error('Error saving entries:', error);
+    
+    // User-friendly error messages
+    if (error.message.includes('quota')) {
+      Alert.alert(
+        'Storage Full',
+        'Your device storage is full. Please free up some space and try again.'
+      );
+    } else if (error.message.includes('Invalid')) {
+      Alert.alert(
+        'Invalid Data',
+        'The entry data is invalid. Please check your inputs and try again.'
+      );
+    } else {
+      Alert.alert(
+        'Save Failed',
+        'Failed to save entry. Your data has been backed up and will be restored.'
+      );
+    }
+    
+    return { success: false, error: error.message };
+  }
+}
+
+// Load entries with error recovery
+export async function loadEntries() {
+  try {
+    const data = await AsyncStorage.getItem(STORAGE_KEY);
+    
+    if (!data) {
+      return [];
+    }
+    
+    const entries = safeJSONParse(data, null);
+    
+    // If parsing failed, try to restore from backup
+    if (entries === null) {
+      console.log('Corrupted data detected, attempting to restore from backup...');
+      const restored = await restoreFromBackup();
+      
+      if (restored.length > 0) {
+        Alert.alert(
+          'Data Restored',
+          'We detected corrupted data and restored from backup.'
+        );
+      }
+      
+      return restored;
+    }
+    
+    return entries;
+  } catch (error) {
+    console.error('Error loading entries:', error);
+    
+    // Try to restore from backup
+    console.log('Attempting to restore from backup...');
+    const restored = await restoreFromBackup();
+    
+    if (restored.length > 0) {
+      Alert.alert(
+        'Data Restored',
+        'We encountered an error loading your data and restored from backup.'
+      );
+    } else {
+      Alert.alert(
+        'Load Failed',
+        'Failed to load entries. Starting with empty data.'
+      );
+    }
+    
+    return restored;
+  }
+}
+
+// Get single entry with error handling
 export async function getEntryByDate(date) {
   try {
+    if (!date || typeof date !== 'string') {
+      throw new Error('Date must be a valid string');
+    }
+    
     const entries = await loadEntries();
-    const entry = entries.find(e => e.date === date);
-    return entry || null;
+    return entries.find(e => e.date === date) || null;
   } catch (error) {
     console.error('Error getting entry:', error);
     return null;
   }
 }
 
-// READ - Get entries in date range
-export async function getEntriesInRange(startDate, endDate) {
-  try {
-    const entries = await loadEntries();
-    return entries.filter(e => {
-      const entryDate = new Date(e.date);
-      return entryDate >= new Date(startDate) && entryDate <= new Date(endDate);
-    });
-  } catch (error) {
-    console.error('Error getting entries in range:', error);
-    return [];
-  }
-}
-
-// UPDATE - Update existing entry
-export async function updateEntry(date, updatedFields) {
-  try {
-    const entries = await loadEntries();
-    const existingIndex = entries.findIndex(e => e.date === date);
-    
-    if (existingIndex < 0) {
-      throw new Error('Entry not found. Use createEntry instead.');
-    }
-    
-    // Merge existing entry with updates
-    entries[existingIndex] = {
-      ...entries[existingIndex],
-      ...updatedFields,
-      date, // Ensure date doesn't change
-      updatedAt: new Date().toISOString(),
-    };
-    
-    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
-    return { success: true, entry: entries[existingIndex] };
-  } catch (error) {
-    console.error('Error updating entry:', error);
-    return { success: false, error: error.message };
-  }
-}
-
-// UPDATE or CREATE - Upsert entry (your current implementation)
-export async function saveEntry(entry) {
-  try {
-    const entries = await loadEntries();
-    const existingIndex = entries.findIndex(e => e.date === entry.date);
-    
-    if (existingIndex >= 0) {
-      // Update existing
-      entries[existingIndex] = {
-        ...entry,
-        updatedAt: new Date().toISOString(),
-      };
-    } else {
-      // Create new
-      entry.timestamp = new Date().toISOString();
-      entries.push(entry);
-    }
-    
-    entries.sort((a, b) => new Date(b.date) - new Date(a.date));
-    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
-    
-    return { success: true, entry };
-  } catch (error) {
-    console.error('Error saving entry:', error);
-    return { success: false, error: error.message };
-  }
-}
-
-// DELETE - Delete entry by date
+// Delete entry with validation
 export async function deleteEntry(date) {
   try {
+    if (!date || typeof date !== 'string') {
+      throw new Error('Date must be a valid string');
+    }
+    
     const entries = await loadEntries();
     const filteredEntries = entries.filter(e => e.date !== date);
     
     if (filteredEntries.length === entries.length) {
-      throw new Error('Entry not found');
+      return { success: false, error: 'Entry not found' };
     }
     
-    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(filteredEntries));
-    return { success: true, date };
+    const result = await saveEntries(filteredEntries);
+    return result.success 
+      ? { success: true, date }
+      : { success: false, error: result.error };
   } catch (error) {
     console.error('Error deleting entry:', error);
     return { success: false, error: error.message };
   }
 }
 
-// DELETE - Delete multiple entries
-export async function deleteEntries(dates) {
-  try {
-    const entries = await loadEntries();
-    const filteredEntries = entries.filter(e => !dates.includes(e.date));
-    
-    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(filteredEntries));
-    return { success: true, deletedCount: entries.length - filteredEntries.length };
-  } catch (error) {
-    console.error('Error deleting entries:', error);
-    return { success: false, error: error.message };
-  }
-}
-
-// DELETE - Clear all entries
+// Clear all data (for testing/reset)
 export async function clearAllEntries() {
   try {
+    // Create backup before clearing
+    const entries = await loadEntries();
+    if (entries.length > 0) {
+      await createBackup(entries);
+    }
+    
     await AsyncStorage.removeItem(STORAGE_KEY);
     return { success: true };
   } catch (error) {
@@ -163,83 +233,26 @@ export async function clearAllEntries() {
   }
 }
 
-// UTILITY - Duplicate entry with new date
-export async function duplicateEntry(originalDate, newDate) {
+// Check storage health
+export async function checkStorageHealth() {
   try {
-    const entry = await getEntryByDate(originalDate);
-    if (!entry) {
-      throw new Error('Original entry not found');
-    }
+    const data = await AsyncStorage.getItem(STORAGE_KEY);
+    const backup = await AsyncStorage.getItem(BACKUP_KEY);
     
-    const newEntry = {
-      ...entry,
-      date: newDate,
-      timestamp: new Date().toISOString(),
-    };
-    
-    delete newEntry.updatedAt; // Remove update timestamp
-    
-    return await createEntry(newEntry);
-  } catch (error) {
-    console.error('Error duplicating entry:', error);
-    return { success: false, error: error.message };
-  }
-}
-
-// UTILITY - Export all entries (for backup)
-export async function exportEntries() {
-  try {
-    const entries = await loadEntries();
     return {
-      success: true,
-      data: entries,
-      exportDate: new Date().toISOString(),
-      count: entries.length,
+      hasData: !!data,
+      hasBackup: !!backup,
+      dataValid: data ? safeJSONParse(data, null) !== null : true,
+      backupValid: backup ? safeJSONParse(backup, null) !== null : true,
     };
   } catch (error) {
-    console.error('Error exporting entries:', error);
-    return { success: false, error: error.message };
-  }
-}
-
-// UTILITY - Import entries (for restore)
-export async function importEntries(importedEntries, mergeStrategy = 'replace') {
-  try {
-    if (mergeStrategy === 'replace') {
-      // Replace all existing entries
-      const sorted = importedEntries.sort((a, b) => new Date(b.date) - new Date(a.date));
-      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(sorted));
-      return { success: true, count: sorted.length };
-    } else if (mergeStrategy === 'merge') {
-      // Merge with existing, keeping newest version of duplicates
-      const existing = await loadEntries();
-      const existingMap = new Map(existing.map(e => [e.date, e]));
-      
-      importedEntries.forEach(entry => {
-        const existingEntry = existingMap.get(entry.date);
-        if (!existingEntry || new Date(entry.timestamp) > new Date(existingEntry.timestamp)) {
-          existingMap.set(entry.date, entry);
-        }
-      });
-      
-      const merged = Array.from(existingMap.values());
-      merged.sort((a, b) => new Date(b.date) - new Date(a.date));
-      
-      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
-      return { success: true, count: merged.length };
-    }
-  } catch (error) {
-    console.error('Error importing entries:', error);
-    return { success: false, error: error.message };
-  }
-}
-
-// LEGACY - Keep your original functions for backward compatibility
-export async function saveEntries(entries) {
-  try {
-    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
-  } catch (error) {
-    console.error('Error saving entries:', error);
-    Alert.alert('Error', 'Failed to save entry');
+    console.error('Error checking storage health:', error);
+    return {
+      hasData: false,
+      hasBackup: false,
+      dataValid: false,
+      backupValid: false,
+      error: error.message,
+    };
   }
 }

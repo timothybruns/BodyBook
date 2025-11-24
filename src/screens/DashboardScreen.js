@@ -1,13 +1,15 @@
-// src/screens/DashboardScreen.js
+// src/screens/DashboardScreen.js - FIXED with proper time ranges and daily view
 import React, { useEffect, useState } from 'react';
-import { SafeAreaView, ScrollView, View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Alert } from 'react-native';
+import { SafeAreaView, ScrollView, View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, Dimensions } from 'react-native';
 import { loadEntries, saveEntries } from '../storage/entries';
 import TimeRangeButton from '../components/TimeRangeButton';
 import EntryCard from '../components/EntryCard';
 import { colors, spacing, shadows } from '../styles/theme';
 
+const screenWidth = Dimensions.get('window').width;
+
 export default function DashboardScreen({ navigation }) {
-  const [timeRange, setTimeRange] = useState('7');
+  const [timeRange, setTimeRange] = useState('W'); // Default to Week
   const [entries, setEntries] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -43,11 +45,22 @@ export default function DashboardScreen({ navigation }) {
     }
   }
 
+  function getTimeRangeDays(range) {
+    switch(range) {
+      case 'D': return 1;
+      case 'W': return 7;
+      case 'M': return 30;
+      case '6M': return 180;
+      case 'Y': return 365;
+      default: return 7;
+    }
+  }
+
   function calculateStats() {
     try {
       if (entries.length === 0) return;
 
-      const days = parseInt(timeRange);
+      const days = getTimeRangeDays(timeRange);
       const cutoff = new Date(); 
       cutoff.setDate(cutoff.getDate() - days);
 
@@ -60,7 +73,18 @@ export default function DashboardScreen({ navigation }) {
         }
       });
       
-      if (recent.length === 0) return;
+      if (recent.length === 0) {
+        // No entries in this time range
+        setStats({
+          avgScore: 0,
+          avgWeight: 'N/A',
+          totalEntries: 0,
+          scoreBreakdown: { negative: 0, neutral: 0, positive: 0 },
+          recentTrend: 'stable',
+          weightChange: 0,
+        });
+        return;
+      }
 
       const totalScore = recent.reduce((s, e) => {
         const score = typeof e.score === 'number' ? e.score : 0;
@@ -113,13 +137,13 @@ export default function DashboardScreen({ navigation }) {
   const getScoreColor = (score) => {
     try {
       const n = typeof score === 'number' ? score : parseFloat(score) || 0;
-      if (n >= 0.75) return '#10b981';
-      if (n >= 0.25) return '#84cc16';
-      if (n >= -0.25) return '#FFC107';
-      if (n >= -0.75) return '#f97316';
-      return '#ef4444';
+      if (n >= 0.75) return colors.scoreExcellent;
+      if (n >= 0.25) return colors.scoreGood;
+      if (n >= -0.25) return colors.scoreNeutral;
+      if (n >= -0.75) return colors.scorePoor;
+      return colors.scoreBad;
     } catch (err) {
-      return '#999';
+      return colors.neutral;
     }
   };
 
@@ -164,6 +188,48 @@ export default function DashboardScreen({ navigation }) {
     ]);
   };
 
+  // Get entries for current time range
+  const getEntriesForTimeRange = () => {
+    const days = getTimeRangeDays(timeRange);
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - days);
+    
+    return entries.filter(e => {
+      try {
+        return new Date(e.date) >= cutoff;
+      } catch (err) {
+        return false;
+      }
+    });
+  };
+
+  const filteredEntries = getEntriesForTimeRange();
+
+  // Get display text for time range
+  const getTimeRangeText = () => {
+    if (timeRange === 'D' && filteredEntries.length > 0) {
+      return 'Today';
+    }
+    
+    const days = getTimeRangeDays(timeRange);
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - days);
+    
+    const today = new Date();
+    const cutoffStr = cutoff.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    const todayStr = today.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    
+    return `${cutoffStr}–${todayStr}`;
+  };
+
+  // Get label text
+  const getStatsLabel = () => {
+    if (timeRange === 'D') {
+      return filteredEntries.length > 0 ? 'SCORE' : 'NO ENTRY';
+    }
+    return 'AVERAGE SCORE';
+  };
+
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -194,10 +260,13 @@ export default function DashboardScreen({ navigation }) {
         <View style={styles.dashboardContainer}>
           <Text style={styles.dashboardHeader}>Your Body Book</Text>
 
+          {/* Time Range Selector */}
           <View style={styles.rangeSelector}>
-            <TimeRangeButton value="7"  label="7 Days" current={timeRange} onPress={setTimeRange} styles={styles} />
-            <TimeRangeButton value="14" label="2 Weeks" current={timeRange} onPress={setTimeRange} styles={styles} />
-            <TimeRangeButton value="30" label="Month"   current={timeRange} onPress={setTimeRange} styles={styles} />
+            <TimeRangeButton value="D" label="D" current={timeRange} onPress={setTimeRange} styles={styles} />
+            <TimeRangeButton value="W" label="W" current={timeRange} onPress={setTimeRange} styles={styles} />
+            <TimeRangeButton value="M" label="M" current={timeRange} onPress={setTimeRange} styles={styles} />
+            <TimeRangeButton value="6M" label="6M" current={timeRange} onPress={setTimeRange} styles={styles} />
+            <TimeRangeButton value="Y" label="Y" current={timeRange} onPress={setTimeRange} styles={styles} />
           </View>
 
           {entries.length === 0 ? (
@@ -206,55 +275,77 @@ export default function DashboardScreen({ navigation }) {
               <Text style={styles.emptyStateText}>No entries yet</Text>
               <Text style={styles.emptyStateSubtext}>Start logging your days!</Text>
             </View>
+          ) : filteredEntries.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyStateEmoji}>📅</Text>
+              <Text style={styles.emptyStateText}>No entries in this period</Text>
+              <Text style={styles.emptyStateSubtext}>Try a different time range</Text>
+            </View>
           ) : (
             <>
+              {/* Main Score Card */}
               <View style={styles.scoreCard}>
-                <Text style={styles.scoreCardLabel}>Body Vibe Score</Text>
+                <Text style={styles.scoreCardLabel}>{getStatsLabel()}</Text>
                 <View style={styles.scoreDisplay}>
                   <Text style={[styles.scoreValue, { color: getScoreColor(stats.avgScore) }]}>
                     {stats.avgScore > 0 ? '+' : ''}{stats.avgScore}
                   </Text>
                   <Text style={styles.scoreEmoji}>{getScoreEmoji(stats.avgScore)}</Text>
                 </View>
-                <View style={styles.trendContainer}>
-                  <Text style={styles.trendEmoji}>{getTrendEmoji(stats.recentTrend)}</Text>
-                  <Text style={styles.trendText}>
-                    {stats.recentTrend.charAt(0).toUpperCase() + stats.recentTrend.slice(1)}
-                  </Text>
-                </View>
-                <Text style={styles.scoreSubtext}>
-                  Based on {stats.totalEntries} {stats.totalEntries === 1 ? 'entry' : 'entries'}
-                </Text>
-              </View>
-
-              <View style={styles.statsGrid}>
-                <View style={styles.statCard}>
-                  <Text style={styles.statValue}>{stats.avgWeight}</Text>
-                  <Text style={styles.statLabel}>Avg Weight</Text>
-                  {stats.weightChange != 0 && (
-                    <Text style={[
-                      styles.changeText,
-                      { color: parseFloat(stats.weightChange) < 0 ? '#10b981' : '#ef4444' }
-                    ]}>
-                      {parseFloat(stats.weightChange) > 0 ? '+' : ''}{stats.weightChange} lbs
+                {timeRange !== 'D' && (
+                  <>
+                    <View style={styles.trendContainer}>
+                      <Text style={styles.trendEmoji}>{getTrendEmoji(stats.recentTrend)}</Text>
+                      <Text style={styles.trendText}>
+                        {stats.recentTrend.charAt(0).toUpperCase() + stats.recentTrend.slice(1)}
+                      </Text>
+                    </View>
+                    <Text style={styles.scoreSubtext}>
+                      {getTimeRangeText()}
                     </Text>
-                  )}
-                </View>
-                <View style={styles.statCard}>
-                  <Text style={styles.statValue}>{stats.totalEntries}</Text>
-                  <Text style={styles.statLabel}>Days Logged</Text>
-                  <Text style={styles.changeText}>
-                    {((stats.totalEntries / parseInt(timeRange)) * 100).toFixed(0)}% complete
+                  </>
+                )}
+                {timeRange === 'D' && filteredEntries.length > 0 && (
+                  <Text style={styles.scoreSubtext}>
+                    {getTimeRangeText()}
                   </Text>
-                </View>
+                )}
               </View>
 
+              {/* Stats Grid - Only show for non-daily views */}
+              {timeRange !== 'D' && (
+                <View style={styles.statsGrid}>
+                  <View style={styles.statCard}>
+                    <Text style={styles.statValue}>{stats.avgWeight}</Text>
+                    <Text style={styles.statLabel}>Avg Weight</Text>
+                    {stats.weightChange != 0 && (
+                      <Text style={[
+                        styles.changeText,
+                        { color: parseFloat(stats.weightChange) < 0 ? colors.positive : colors.negative }
+                      ]}>
+                        {parseFloat(stats.weightChange) > 0 ? '+' : ''}{stats.weightChange} lbs
+                      </Text>
+                    )}
+                  </View>
+                  <View style={styles.statCard}>
+                    <Text style={styles.statValue}>{stats.totalEntries}</Text>
+                    <Text style={styles.statLabel}>Days Logged</Text>
+                    <Text style={styles.changeText}>
+                      {((stats.totalEntries / getTimeRangeDays(timeRange)) * 100).toFixed(0)}% complete
+                    </Text>
+                  </View>
+                </View>
+              )}
+
+              {/* Recent Entries */}
               <View style={styles.recentHeaderContainer}>
-                <Text style={styles.recentHeader}>Recent Entries</Text>
+                <Text style={styles.recentHeader}>
+                  {timeRange === 'D' ? 'Entry Details' : 'Recent Entries'}
+                </Text>
                 <Text style={styles.recentSubheader}>Tap to edit</Text>
               </View>
 
-              {entries.slice(0, 10).map((entry) => (
+              {filteredEntries.slice(0, timeRange === 'D' ? 1 : 10).map((entry) => (
                 <EntryCard
                   key={entry.date}
                   entry={entry}
@@ -300,7 +391,7 @@ const styles = StyleSheet.create({
   rangeButtonText: { fontSize: 14, fontWeight: '600', color: colors.textSecondary },
   rangeButtonTextActive: { color: colors.textPrimary },
   scoreCard: { backgroundColor: colors.backgroundCard, borderRadius: 16, padding: 24, marginBottom: 16, alignItems: 'center', ...shadows.cardLg },
-  scoreCardLabel: { fontSize: 16, color: colors.textSecondary, marginBottom: 12 },
+  scoreCardLabel: { fontSize: 14, color: colors.textSecondary, marginBottom: 12, fontWeight: '600', letterSpacing: 0.5 },
   scoreDisplay: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
   scoreValue: { fontSize: 56, fontWeight: 'bold', marginRight: 12 },
   scoreEmoji: { fontSize: 48 },

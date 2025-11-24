@@ -1,11 +1,13 @@
-// src/screens/EntryFormScreen.js
+// src/screens/EntryFormScreen.js - UPDATED with TagInput
 import React, { useEffect, useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet,
   SafeAreaView, Alert, KeyboardAvoidingView, Platform, ActivityIndicator,
 } from 'react-native';
 import { loadEntries, saveEntries } from '../storage/entries';
+import { loadTags, learnFromEntry } from '../storage/tags';
 import ScoreButton from '../components/ScoreButton';
+import TagInput from '../components/TagInput';
 import { colors, spacing, shadows } from '../styles/theme';
 import { formatDisplayDate } from '../utils/date';
 
@@ -21,8 +23,17 @@ export default function EntryFormScreen({ navigation, route }) {
   const [loading, setLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [errors, setErrors] = useState({});
+  const [tags, setTags] = useState({ diet: [], exercise: [], recovery: [] });
 
-  useEffect(() => { loadExistingEntry(); }, [editDate]);
+  useEffect(() => { 
+    loadExistingEntry();
+    loadTagSuggestions();
+  }, [editDate]);
+
+  async function loadTagSuggestions() {
+    const loadedTags = await loadTags();
+    setTags(loadedTags);
+  }
 
   async function loadExistingEntry() {
     try {
@@ -77,15 +88,20 @@ export default function EntryFormScreen({ navigation, route }) {
     setErrors(prev => ({ ...prev, weight: error }));
   }
 
-  function handleTextChange(field, value, maxLength = 1000) {
+  function handleTagFieldChange(field, value) {
     const fieldSetters = {
       exercise: setExercise,
       diet: setDiet,
       recovery: setRecovery,
-      comments: setComments,
     };
     
     fieldSetters[field](value);
+    const error = validateTextLength(value, field, 1000);
+    setErrors(prev => ({ ...prev, [field]: error }));
+  }
+
+  function handleTextChange(field, value, maxLength = 1000) {
+    setComments(value);
     const error = validateTextLength(value, field, maxLength);
     setErrors(prev => ({ ...prev, [field]: error }));
   }
@@ -141,6 +157,9 @@ export default function EntryFormScreen({ navigation, route }) {
         comments: comments.trim(),
         timestamp: new Date().toISOString(),
       };
+      
+      // Learn new tags from this entry
+      await learnFromEntry(entry);
       
       const existingIndex = entries.findIndex(e => e.date === date);
       if (existingIndex >= 0) {
@@ -204,53 +223,32 @@ export default function EntryFormScreen({ navigation, route }) {
               )}
             </View>
 
-            <View style={styles.section}>
-              <Text style={styles.label}>Exercise</Text>
-              <TextInput
-                style={[styles.input, styles.textArea, errors.exercise && styles.inputError]}
-                value={exercise}
-                onChangeText={(value) => handleTextChange('exercise', value, 500)}
-                multiline numberOfLines={3}
-                placeholder="100 pushups, 20 min bike..." 
-                placeholderTextColor="#636366"
-                textAlignVertical="top"
-              />
-              {errors.exercise && (
-                <Text style={styles.errorText}>{errors.exercise}</Text>
-              )}
-            </View>
+            <TagInput
+              label="Exercise"
+              value={exercise}
+              onChange={(value) => handleTagFieldChange('exercise', value)}
+              placeholder="Add exercises..."
+              suggestions={tags.exercise || []}
+              error={errors.exercise}
+            />
 
-            <View style={styles.section}>
-              <Text style={styles.label}>Diet</Text>
-              <TextInput
-                style={[styles.input, styles.textAreaLarge, errors.diet && styles.inputError]}
-                value={diet}
-                onChangeText={(value) => handleTextChange('diet', value, 1000)}
-                multiline numberOfLines={5}
-                placeholder="Oatmeal, chicken salad, protein shake..." 
-                placeholderTextColor="#636366"
-                textAlignVertical="top"
-              />
-              {errors.diet && (
-                <Text style={styles.errorText}>{errors.diet}</Text>
-              )}
-            </View>
+            <TagInput
+              label="Diet"
+              value={diet}
+              onChange={(value) => handleTagFieldChange('diet', value)}
+              placeholder="Add foods and drinks..."
+              suggestions={tags.diet || []}
+              error={errors.diet}
+            />
 
-            <View style={styles.section}>
-              <Text style={styles.label}>Recovery</Text>
-              <TextInput
-                style={[styles.input, styles.textArea, errors.recovery && styles.inputError]}
-                value={recovery}
-                onChangeText={(value) => handleTextChange('recovery', value, 500)}
-                multiline numberOfLines={3}
-                placeholder="Stretch, ice, breathing..." 
-                placeholderTextColor="#636366"
-                textAlignVertical="top"
-              />
-              {errors.recovery && (
-                <Text style={styles.errorText}>{errors.recovery}</Text>
-              )}
-            </View>
+            <TagInput
+              label="Recovery"
+              value={recovery}
+              onChange={(value) => handleTagFieldChange('recovery', value)}
+              placeholder="Add recovery activities..."
+              suggestions={tags.recovery || []}
+              error={errors.recovery}
+            />
 
             <View style={styles.section}>
               <Text style={styles.labelLarge}>Body Vibe Score</Text>
@@ -340,7 +338,6 @@ const styles = StyleSheet.create({
     marginLeft: 4,
   },
   textArea: { minHeight: 100, textAlignVertical: 'top' },
-  textAreaLarge: { minHeight: 140, textAlignVertical: 'top' },
   scoreContainer: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
   scoreButton: { 
     flex: 1, 

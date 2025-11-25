@@ -1,15 +1,17 @@
-// src/screens/DashboardScreen.js - FIXED with proper time ranges and daily view
-import React, { useEffect, useState } from 'react';
+// src/screens/DashboardScreen.js - FIXED navigation listener bug
+import React, { useEffect, useState, useCallback } from 'react';
 import { SafeAreaView, ScrollView, View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, Dimensions } from 'react-native';
 import { loadEntries, saveEntries } from '../storage/entries';
+import { useFocusEffect } from '@react-navigation/native';
 import TimeRangeButton from '../components/TimeRangeButton';
 import EntryCard from '../components/EntryCard';
+import ScoreChart from '../components/ScoreChart';
 import { colors, spacing, shadows } from '../styles/theme';
 
 const screenWidth = Dimensions.get('window').width;
 
 export default function DashboardScreen({ navigation }) {
-  const [timeRange, setTimeRange] = useState('W'); // Default to Week
+  const [timeRange, setTimeRange] = useState('W');
   const [entries, setEntries] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -18,16 +20,19 @@ export default function DashboardScreen({ navigation }) {
     scoreBreakdown: { negative: 0, neutral: 0, positive: 0 },
     recentTrend: 'stable', weightChange: 0,
   });
+  const [chartData, setChartData] = useState([]);
 
-  useEffect(() => {
-    loadData();
-    const unsub = navigation.addListener('focus', loadData);
-    return unsub;
-  }, [navigation]);
+  // Use useFocusEffect instead of navigation.addListener
+  useFocusEffect(
+    useCallback(() => {
+      loadData();
+    }, [])
+  );
 
   useEffect(() => { 
     if (entries.length > 0) {
-      calculateStats(); 
+      calculateStats();
+      prepareChartData();
     }
   }, [timeRange, entries]);
 
@@ -56,6 +61,67 @@ export default function DashboardScreen({ navigation }) {
     }
   }
 
+  function prepareChartData() {
+    // Don't prepare chart data for Day view
+    if (timeRange === 'D') {
+      setChartData([]);
+      return;
+    }
+
+    const days = getTimeRangeDays(timeRange);
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - days);
+    cutoff.setHours(0, 0, 0, 0);
+
+    // Get entries in range
+    const recentEntries = entries.filter(e => {
+      try {
+        return new Date(e.date) >= cutoff;
+      } catch (err) {
+        return false;
+      }
+    });
+
+    if (recentEntries.length === 0) {
+      setChartData([]);
+      return;
+    }
+
+    // Create array of all dates in range
+    const data = [];
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    let lastScore = 0; // For forward-filling missing days
+    
+    for (let i = days - 1; i >= 0; i--) {
+      const date = new Date(today);
+      date.setDate(date.getDate() - i);
+      const dateStr = date.toISOString().split('T')[0];
+      
+      // Find entry for this date
+      const entry = recentEntries.find(e => e.date === dateStr);
+      
+      if (entry) {
+        lastScore = typeof entry.score === 'number' ? entry.score : 0;
+        data.push({
+          date: dateStr,
+          score: lastScore,
+          hasEntry: true,
+        });
+      } else {
+        // Forward fill - use last known score
+        data.push({
+          date: dateStr,
+          score: lastScore,
+          hasEntry: false,
+        });
+      }
+    }
+
+    setChartData(data);
+  }
+
   function calculateStats() {
     try {
       if (entries.length === 0) return;
@@ -74,7 +140,6 @@ export default function DashboardScreen({ navigation }) {
       });
       
       if (recent.length === 0) {
-        // No entries in this time range
         setStats({
           avgScore: 0,
           avgWeight: 'N/A',
@@ -147,19 +212,6 @@ export default function DashboardScreen({ navigation }) {
     }
   };
 
-  const getScoreEmoji = (s) => {
-    try {
-      const n = typeof s === 'number' ? s : parseFloat(s) || 0;
-      if (n >= 1) return '🔥';
-      if (n >= 0.5) return '😊';
-      if (n >= 0) return '😐';
-      if (n >= -0.5) return '😕';
-      return '😫';
-    } catch (err) {
-      return '😐';
-    }
-  };
-
   const getTrendEmoji = (t) => (t === 'improving' ? '📈' : t === 'declining' ? '📉' : '➡️');
 
   const deleteEntry = async (date) => {
@@ -188,7 +240,6 @@ export default function DashboardScreen({ navigation }) {
     ]);
   };
 
-  // Get entries for current time range
   const getEntriesForTimeRange = () => {
     const days = getTimeRangeDays(timeRange);
     const cutoff = new Date();
@@ -205,7 +256,6 @@ export default function DashboardScreen({ navigation }) {
 
   const filteredEntries = getEntriesForTimeRange();
 
-  // Get display text for time range
   const getTimeRangeText = () => {
     if (timeRange === 'D' && filteredEntries.length > 0) {
       return 'Today';
@@ -222,7 +272,6 @@ export default function DashboardScreen({ navigation }) {
     return `${cutoffStr}–${todayStr}`;
   };
 
-  // Get label text
   const getStatsLabel = () => {
     if (timeRange === 'D') {
       return filteredEntries.length > 0 ? 'SCORE' : 'NO ENTRY';
@@ -260,7 +309,6 @@ export default function DashboardScreen({ navigation }) {
         <View style={styles.dashboardContainer}>
           <Text style={styles.dashboardHeader}>Your Body Book</Text>
 
-          {/* Time Range Selector */}
           <View style={styles.rangeSelector}>
             <TimeRangeButton value="D" label="D" current={timeRange} onPress={setTimeRange} styles={styles} />
             <TimeRangeButton value="W" label="W" current={timeRange} onPress={setTimeRange} styles={styles} />
@@ -286,12 +334,26 @@ export default function DashboardScreen({ navigation }) {
               {/* Main Score Card */}
               <View style={styles.scoreCard}>
                 <Text style={styles.scoreCardLabel}>{getStatsLabel()}</Text>
+                
+                {/* Show chart only for non-Day views */}
+                {timeRange !== 'D' && chartData.length > 0 && (
+                  <View style={styles.chartContainer}>
+                    <ScoreChart 
+                      data={chartData} 
+                      width={screenWidth - 80}
+                      height={180}
+                    />
+                  </View>
+                )}
+                
+                {/* Score display */}
                 <View style={styles.scoreDisplay}>
                   <Text style={[styles.scoreValue, { color: getScoreColor(stats.avgScore) }]}>
                     {stats.avgScore > 0 ? '+' : ''}{stats.avgScore}
                   </Text>
-                  <Text style={styles.scoreEmoji}>{getScoreEmoji(stats.avgScore)}</Text>
                 </View>
+
+                {/* Trend and date - only for non-Day views */}
                 {timeRange !== 'D' && (
                   <>
                     <View style={styles.trendContainer}>
@@ -305,6 +367,8 @@ export default function DashboardScreen({ navigation }) {
                     </Text>
                   </>
                 )}
+
+                {/* For Day view - just show date */}
                 {timeRange === 'D' && filteredEntries.length > 0 && (
                   <Text style={styles.scoreSubtext}>
                     {getTimeRangeText()}
@@ -312,7 +376,7 @@ export default function DashboardScreen({ navigation }) {
                 )}
               </View>
 
-              {/* Stats Grid - Only show for non-daily views */}
+              {/* Stats Grid - only show for non-Day views */}
               {timeRange !== 'D' && (
                 <View style={styles.statsGrid}>
                   <View style={styles.statCard}>
@@ -390,13 +454,54 @@ const styles = StyleSheet.create({
   rangeButtonActive: { backgroundColor: colors.primary },
   rangeButtonText: { fontSize: 14, fontWeight: '600', color: colors.textSecondary },
   rangeButtonTextActive: { color: colors.textPrimary },
-  scoreCard: { backgroundColor: colors.backgroundCard, borderRadius: 16, padding: 24, marginBottom: 16, alignItems: 'center', ...shadows.cardLg },
-  scoreCardLabel: { fontSize: 14, color: colors.textSecondary, marginBottom: 12, fontWeight: '600', letterSpacing: 0.5 },
-  scoreDisplay: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
-  scoreValue: { fontSize: 56, fontWeight: 'bold', marginRight: 12 },
-  scoreEmoji: { fontSize: 48 },
-  scoreSubtext: { fontSize: 14, color: colors.textTertiary },
-  trendContainer: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
+  scoreCard: { 
+    backgroundColor: colors.backgroundCard, 
+    borderRadius: 16, 
+    padding: 24, 
+    marginBottom: 16, 
+    alignItems: 'center', 
+    ...shadows.cardLg,
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  scoreCardLabel: { 
+    fontSize: 14, 
+    color: colors.textSecondary, 
+    marginBottom: 12, 
+    fontWeight: '600', 
+    letterSpacing: 0.5, 
+    zIndex: 2 
+  },
+  chartContainer: {
+    position: 'absolute',
+    top: 40,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  scoreDisplay: { 
+    marginTop: 20,
+    marginBottom: 8, 
+    zIndex: 2 
+  },
+  scoreValue: { 
+    fontSize: 56, 
+    fontWeight: 'bold', 
+    zIndex: 2 
+  },
+  scoreSubtext: { 
+    fontSize: 14, 
+    color: colors.textTertiary, 
+    zIndex: 2 
+  },
+  trendContainer: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    marginBottom: 8, 
+    zIndex: 2 
+  },
   trendEmoji: { fontSize: 20, marginRight: 8 },
   trendText: { fontSize: 14, color: colors.textSecondary, fontWeight: '600' },
   statsGrid: { flexDirection: 'row', gap: 12, marginBottom: 16 },

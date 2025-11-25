@@ -1,4 +1,4 @@
-// src/screens/DashboardScreen.js - FIXED navigation listener bug
+// src/screens/DashboardScreen.js - COMPLETE FILE WITH CHART UPDATES
 import React, { useEffect, useState, useCallback } from 'react';
 import { SafeAreaView, ScrollView, View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, Dimensions } from 'react-native';
 import { loadEntries, saveEntries } from '../storage/entries';
@@ -22,7 +22,6 @@ export default function DashboardScreen({ navigation }) {
   });
   const [chartData, setChartData] = useState([]);
 
-  // Use useFocusEffect instead of navigation.addListener
   useFocusEffect(
     useCallback(() => {
       loadData();
@@ -62,7 +61,6 @@ export default function DashboardScreen({ navigation }) {
   }
 
   function prepareChartData() {
-    // Don't prepare chart data for Day view
     if (timeRange === 'D') {
       setChartData([]);
       return;
@@ -73,7 +71,6 @@ export default function DashboardScreen({ navigation }) {
     cutoff.setDate(cutoff.getDate() - days);
     cutoff.setHours(0, 0, 0, 0);
 
-    // Get entries in range
     const recentEntries = entries.filter(e => {
       try {
         return new Date(e.date) >= cutoff;
@@ -87,19 +84,17 @@ export default function DashboardScreen({ navigation }) {
       return;
     }
 
-    // Create array of all dates in range
     const data = [];
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     
-    let lastScore = 0; // For forward-filling missing days
+    let lastScore = 0;
     
     for (let i = days - 1; i >= 0; i--) {
       const date = new Date(today);
       date.setDate(date.getDate() - i);
       const dateStr = date.toISOString().split('T')[0];
       
-      // Find entry for this date
       const entry = recentEntries.find(e => e.date === dateStr);
       
       if (entry) {
@@ -110,7 +105,6 @@ export default function DashboardScreen({ navigation }) {
           hasEntry: true,
         });
       } else {
-        // Forward fill - use last known score
         data.push({
           date: dateStr,
           score: lastScore,
@@ -333,46 +327,46 @@ export default function DashboardScreen({ navigation }) {
             <>
               {/* Main Score Card */}
               <View style={styles.scoreCard}>
-                <Text style={styles.scoreCardLabel}>{getStatsLabel()}</Text>
-                
-                {/* Show chart only for non-Day views */}
-                {timeRange !== 'D' && chartData.length > 0 && (
-                  <View style={styles.chartContainer}>
-                    <ScoreChart 
-                      data={chartData} 
-                      width={screenWidth - 80}
-                      height={180}
-                    />
-                  </View>
-                )}
-                
-                {/* Score display */}
-                <View style={styles.scoreDisplay}>
-                  <Text style={[styles.scoreValue, { color: getScoreColor(stats.avgScore) }]}>
-                    {stats.avgScore > 0 ? '+' : ''}{stats.avgScore}
-                  </Text>
-                </View>
-
-                {/* Trend and date - only for non-Day views */}
-                {timeRange !== 'D' && (
+                {timeRange !== 'D' && chartData.length > 0 ? (
                   <>
-                    <View style={styles.trendContainer}>
-                      <Text style={styles.trendEmoji}>{getTrendEmoji(stats.recentTrend)}</Text>
-                      <Text style={styles.trendText}>
-                        {stats.recentTrend.charAt(0).toUpperCase() + stats.recentTrend.slice(1)}
+                    {/* Chart fills the card */}
+                    <View style={styles.chartFullContainer}>
+                      <ScoreChart 
+                        data={chartData} 
+                        width={screenWidth - 80}
+                        height={240}
+                        avgScore={stats.avgScore}
+                      />
+                    </View>
+                    
+                    {/* Trend and date at bottom */}
+                    <View style={styles.chartFooter}>
+                      <View style={styles.trendContainer}>
+                        <Text style={styles.trendEmoji}>{getTrendEmoji(stats.recentTrend)}</Text>
+                        <Text style={styles.trendText}>
+                          {stats.recentTrend.charAt(0).toUpperCase() + stats.recentTrend.slice(1)}
+                        </Text>
+                      </View>
+                      <Text style={styles.scoreSubtext}>
+                        {getTimeRangeText()}
                       </Text>
                     </View>
-                    <Text style={styles.scoreSubtext}>
-                      {getTimeRangeText()}
-                    </Text>
                   </>
-                )}
-
-                {/* For Day view - just show date */}
-                {timeRange === 'D' && filteredEntries.length > 0 && (
-                  <Text style={styles.scoreSubtext}>
-                    {getTimeRangeText()}
-                  </Text>
+                ) : (
+                  <>
+                    {/* Day view - show score prominently */}
+                    <Text style={styles.scoreCardLabel}>{getStatsLabel()}</Text>
+                    <View style={styles.scoreDisplay}>
+                      <Text style={[styles.scoreValue, { color: getScoreColor(stats.avgScore) }]}>
+                        {stats.avgScore > 0 ? '+' : ''}{stats.avgScore}
+                      </Text>
+                    </View>
+                    {timeRange === 'D' && filteredEntries.length > 0 && (
+                      <Text style={styles.scoreSubtext}>
+                        {getTimeRangeText()}
+                      </Text>
+                    )}
+                  </>
                 )}
               </View>
 
@@ -457,53 +451,52 @@ const styles = StyleSheet.create({
   scoreCard: { 
     backgroundColor: colors.backgroundCard, 
     borderRadius: 16, 
-    padding: 24, 
+    padding: 0,
     marginBottom: 16, 
     alignItems: 'center', 
     ...shadows.cardLg,
-    position: 'relative',
     overflow: 'hidden',
+    minHeight: 240,
+  },
+  chartFullContainer: {
+    width: '100%',
+    height: 240,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  chartFooter: {
+    width: '100%',
+    paddingHorizontal: 20,
+    paddingBottom: 16,
+    alignItems: 'center',
   },
   scoreCardLabel: { 
     fontSize: 14, 
     color: colors.textSecondary, 
+    marginTop: 24,
     marginBottom: 12, 
     fontWeight: '600', 
     letterSpacing: 0.5, 
-    zIndex: 2 
-  },
-  chartContainer: {
-    position: 'absolute',
-    top: 40,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   scoreDisplay: { 
-    marginTop: 20,
     marginBottom: 8, 
-    zIndex: 2 
   },
   scoreValue: { 
     fontSize: 56, 
     fontWeight: 'bold', 
-    zIndex: 2 
   },
   scoreSubtext: { 
     fontSize: 14, 
-    color: colors.textTertiary, 
-    zIndex: 2 
+    color: colors.textTertiary,
+    marginBottom: 16,
   },
   trendContainer: { 
     flexDirection: 'row', 
     alignItems: 'center', 
-    marginBottom: 8, 
-    zIndex: 2 
+    marginBottom: 4,
   },
-  trendEmoji: { fontSize: 20, marginRight: 8 },
-  trendText: { fontSize: 14, color: colors.textSecondary, fontWeight: '600' },
+  trendEmoji: { fontSize: 16, marginRight: 6 },
+  trendText: { fontSize: 13, color: colors.textSecondary, fontWeight: '600' },
   statsGrid: { flexDirection: 'row', gap: 12, marginBottom: 16 },
   statCard: { flex: 1, backgroundColor: colors.backgroundCard, borderRadius: 12, padding: 20, alignItems: 'center', ...shadows.card },
   statValue: { fontSize: 28, fontWeight: 'bold', color: colors.textPrimary, marginBottom: 4 },

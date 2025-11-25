@@ -1,13 +1,13 @@
-// src/components/ScoreChart.js
+// src/components/ScoreChart.js - UPDATED with better spacing
 import React from 'react';
-import { View } from 'react-native';
-import Svg, { Line, Polyline, Circle, Defs, LinearGradient, Stop } from 'react-native-svg';
+import { View, Text, StyleSheet } from 'react-native';
+import Svg, { Line, Polyline, Circle, G, Text as SvgText } from 'react-native-svg';
 import { colors } from '../styles/theme';
 
-export default function ScoreChart({ data, width, height }) {
+export default function ScoreChart({ data, width, height, avgScore }) {
   if (!data || data.length === 0) return null;
 
-  const padding = { top: 20, right: 10, bottom: 20, left: 10 };
+  const padding = { top: 60, right: 15, bottom: 30, left: 30 };
   const chartWidth = width - padding.left - padding.right;
   const chartHeight = height - padding.top - padding.bottom;
 
@@ -15,73 +15,136 @@ export default function ScoreChart({ data, width, height }) {
   const maxScore = 2;
   const scoreRange = maxScore - minScore;
 
+  // Calculate points
   const points = data.map((item, index) => {
-    const x = padding.left + (index / (data.length - 1)) * chartWidth;
+    const x = padding.left + (index / Math.max(data.length - 1, 1)) * chartWidth;
     const y = padding.top + chartHeight - ((item.score - minScore) / scoreRange) * chartHeight;
     return { x, y, ...item };
   });
 
   const pathPoints = points.map(p => `${p.x},${p.y}`).join(' ');
 
-  const avgScore = data.reduce((sum, d) => sum + d.score, 0) / data.length;
-  const lineColor = avgScore >= 0.75 ? colors.scoreExcellent :
-                    avgScore >= 0.25 ? colors.scoreGood :
-                    avgScore >= -0.25 ? colors.scoreNeutral :
-                    avgScore >= -0.75 ? colors.scorePoor :
-                    colors.scoreBad;
-
+  // Grid lines at each score level
   const gridLines = [-2, -1, 0, 1, 2];
 
+  // Line color - white/light gray
+  const lineColor = '#FFFFFF';
+  const gridColor = 'rgba(255, 255, 255, 0.15)';
+  const zeroLineColor = 'rgba(255, 255, 255, 0.3)';
+  const labelColor = 'rgba(255, 255, 255, 0.5)';
+
   return (
-    <View style={{ width, height }}>
+    <View style={[styles.container, { width, height }]}>
+      {/* Score Label - Top Left (with more top padding) */}
+      <View style={styles.scoreLabel}>
+        <Text style={styles.scoreLabelText}>AVG. SCORE</Text>
+        <Text style={styles.scoreValue}>
+          {avgScore > 0 ? '+' : ''}{avgScore}
+        </Text>
+      </View>
+
+      {/* Chart */}
       <Svg width={width} height={height}>
-        <Defs>
-          <LinearGradient id="lineGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-            <Stop offset="0%" stopColor={lineColor} stopOpacity="0.3" />
-            <Stop offset="100%" stopColor={lineColor} stopOpacity="0.05" />
-          </LinearGradient>
-        </Defs>
+        <G>
+          {/* Horizontal grid lines with Y-axis labels */}
+          {gridLines.map((score) => {
+            const y = padding.top + chartHeight - ((score - minScore) / scoreRange) * chartHeight;
+            const isZeroLine = score === 0;
+            return (
+              <G key={`grid-${score}`}>
+                {/* Grid line */}
+                <Line
+                  x1={padding.left}
+                  y1={y}
+                  x2={width - padding.right}
+                  y2={y}
+                  stroke={isZeroLine ? zeroLineColor : gridColor}
+                  strokeWidth={isZeroLine ? 1 : 0.5}
+                />
+                {/* Y-axis label */}
+                <SvgText
+                  x={padding.left - 8}
+                  y={y + 4}
+                  fontSize="11"
+                  fill={labelColor}
+                  textAnchor="end"
+                  fontWeight={isZeroLine ? "600" : "400"}
+                >
+                  {score > 0 ? `+${score}` : score}
+                </SvgText>
+              </G>
+            );
+          })}
 
-        {gridLines.map((score) => {
-          const y = padding.top + chartHeight - ((score - minScore) / scoreRange) * chartHeight;
-          return (
-            <Line
-              key={score}
-              x1={padding.left}
-              y1={y}
-              x2={width - padding.right}
-              y2={y}
-              stroke={score === 0 ? colors.backgroundLight : colors.background}
-              strokeWidth={score === 0 ? 1.5 : 1}
-              strokeOpacity={score === 0 ? 0.5 : 0.3}
-            />
-          );
-        })}
+          {/* Vertical grid lines (optional - for days) */}
+          {points.map((point, index) => {
+            // Only show every few vertical lines to avoid clutter
+            if (index % Math.ceil(points.length / 5) !== 0) return null;
+            return (
+              <Line
+                key={`vgrid-${index}`}
+                x1={point.x}
+                y1={padding.top}
+                x2={point.x}
+                y2={height - padding.bottom}
+                stroke={gridColor}
+                strokeWidth={0.5}
+              />
+            );
+          })}
 
-        <Polyline
-          points={pathPoints}
-          fill="none"
-          stroke={lineColor}
-          strokeWidth={3}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
+          {/* Main line chart */}
+          <Polyline
+            points={pathPoints}
+            fill="none"
+            stroke={lineColor}
+            strokeWidth={2.5}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
 
-        {points.map((point, index) => {
-          if (!point.hasEntry) return null;
-          return (
-            <Circle
-              key={index}
-              cx={point.x}
-              cy={point.y}
-              r={4}
-              fill={lineColor}
-              stroke={colors.backgroundCard}
-              strokeWidth={2}
-            />
-          );
-        })}
+          {/* Data points - only show for entries with data */}
+          {points.map((point, index) => {
+            if (!point.hasEntry) return null;
+            return (
+              <Circle
+                key={`point-${index}`}
+                cx={point.x}
+                cy={point.y}
+                r={3.5}
+                fill={lineColor}
+                stroke={colors.background}
+                strokeWidth={1.5}
+              />
+            );
+          })}
+        </G>
       </Svg>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    position: 'relative',
+    backgroundColor: 'transparent',
+  },
+  scoreLabel: {
+    position: 'absolute',
+    top: 12,
+    left: 30,
+    zIndex: 10,
+  },
+  scoreLabelText: {
+    fontSize: 11,
+    color: colors.textSecondary,
+    fontWeight: '600',
+    letterSpacing: 0.5,
+    marginBottom: 2,
+  },
+  scoreValue: {
+    fontSize: 26,
+    fontWeight: 'bold',
+    color: colors.textPrimary,
+  },
+});

@@ -501,7 +501,7 @@ const styles = StyleSheet.create({
   statCard: { flex: 1, backgroundColor: colors.backgroundCard, borderRadius: 12, padding: 20, alignItems: 'center', ...shadows.card },
   statValue: { fontSize: 28, fontWeight: 'bold', color: colors.textPrimary, marginBottom: 4 },
   statLabel: { fontSize: 14, color: colors.textSecondary, marginBottom: 4 },
-  changeText: { fontSize: 12, fontWeight: '600', marginTop: 4 },
+  changeText: { fontSize: 12, fontWeight: '600', marginTop: 4, color: colors.textPrimary },
   recentHeaderContainer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
   recentHeader: { fontSize: 20, fontWeight: 'bold', color: colors.textPrimary },
   recentSubheader: { fontSize: 12, color: colors.textTertiary },

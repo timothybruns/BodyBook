@@ -1,4 +1,4 @@
-// src/components/ScoreChart.js - UPDATED with better spacing
+// src/components/ScoreChart.js - UPDATED with prominent score
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import Svg, { Line, Polyline, Circle, G, Text as SvgText } from 'react-native-svg';
@@ -7,7 +7,7 @@ import { colors } from '../styles/theme';
 export default function ScoreChart({ data, width, height, avgScore }) {
   if (!data || data.length === 0) return null;
 
-  const padding = { top: 60, right: 15, bottom: 30, left: 30 };
+  const padding = { top: 80, right: 15, bottom: 30, left: 30 };
   const chartWidth = width - padding.left - padding.right;
   const chartHeight = height - padding.top - padding.bottom;
 
@@ -35,7 +35,7 @@ export default function ScoreChart({ data, width, height, avgScore }) {
 
   return (
     <View style={[styles.container, { width, height }]}>
-      {/* Score Label - Top Left (with more top padding) */}
+      {/* Score Label - Centered and More Prominent */}
       <View style={styles.scoreLabel}>
         <Text style={styles.scoreLabelText}>AVG. SCORE</Text>
         <Text style={styles.scoreValue}>
@@ -131,20 +131,23 @@ const styles = StyleSheet.create({
   },
   scoreLabel: {
     position: 'absolute',
-    top: 12,
-    left: 30,
+    top: 16,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
     zIndex: 10,
   },
   scoreLabelText: {
-    fontSize: 11,
+    fontSize: 12,
     color: colors.textSecondary,
     fontWeight: '600',
-    letterSpacing: 0.5,
-    marginBottom: 2,
+    letterSpacing: 0.8,
+    marginBottom: 0.5,
   },
   scoreValue: {
-    fontSize: 26,
+    fontSize: 40,
     fontWeight: 'bold',
     color: colors.textPrimary,
+    letterSpacing: -1,
   },
 });
